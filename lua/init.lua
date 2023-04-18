@@ -1,128 +1,138 @@
-local yaml = require("yaml")
-local NuiTree = require("nui.tree")
-local Split = require("nui.split")
-local NuiLine = require("nui.line")
+local M = {}
+function M.setup(opts)
+	vim.print("hello from setup")
+	require("postwoman.cmd").setup(opts)
+end
 
-local file = io.open("/home/hamidreza/example.yaml", "r")
-local data = yaml.eval(file:read("*all"))
-vim.print(data)
-file:close()
+function M.openyaml()
+	local yaml = require("yaml")
+	local NuiTree = require("nui.tree")
+	local Split = require("nui.split")
+	local NuiLine = require("nui.line")
 
-local split = Split({
-	relative = "win",
-	position = "left",
-	size = 30,
-})
+	local file = io.open("/home/hamidreza/example.yaml", "r")
+	local data = yaml.eval(file:read("*all"))
+	vim.print(data)
+	file:close()
 
-split:mount()
+	local split = Split({
+		relative = "win",
+		position = "left",
+		size = 30,
+	})
 
--- quit
-split:map("n", "q", function()
-	split:unmount()
-end, { noremap = true })
+	split:mount()
 
-local tree = NuiTree({
-	winid = split.winid,
-	nodes = {
-		NuiTree.Node({ text = "a" }),
-		NuiTree.Node({ text = "b" }, {
-			NuiTree.Node({ text = "b-1" }),
-			NuiTree.Node({ text = "b-2" }, {
-				NuiTree.Node({ text = "b-1-a" }),
-				NuiTree.Node({ text = "b-2-b" }),
+	-- quit
+	split:map("n", "q", function()
+		split:unmount()
+	end, { noremap = true })
+
+	local tree = NuiTree({
+		winid = split.winid,
+		nodes = {
+			NuiTree.Node({ text = "a" }),
+			NuiTree.Node({ text = "b" }, {
+				NuiTree.Node({ text = "b-1" }),
+				NuiTree.Node({ text = "b-2" }, {
+					NuiTree.Node({ text = "b-1-a" }),
+					NuiTree.Node({ text = "b-2-b" }),
+				}),
 			}),
-		}),
-		NuiTree.Node({ text = "c" }, {
-			NuiTree.Node({ text = "c-1" }),
-			NuiTree.Node({ text = "c-2" }),
-		}),
-	},
-	prepare_node = function(node)
-		local line = NuiLine()
+			NuiTree.Node({ text = "c" }, {
+				NuiTree.Node({ text = "c-1" }),
+				NuiTree.Node({ text = "c-2" }),
+			}),
+		},
+		prepare_node = function(node)
+			local line = NuiLine()
 
-		line:append(string.rep("  ", node:get_depth() - 1))
+			line:append(string.rep("  ", node:get_depth() - 1))
 
-		if node:has_children() then
-			line:append(node:is_expanded() and " " or " ", "SpecialChar")
-		else
-			line:append("  ")
+			if node:has_children() then
+				line:append(node:is_expanded() and " " or " ", "SpecialChar")
+			else
+				line:append("  ")
+			end
+
+			line:append(node.text)
+
+			return line
+		end,
+	})
+
+	local map_options = { noremap = true, nowait = true }
+
+	-- print current node
+	split:map("n", "<CR>", function()
+		local node = tree:get_node()
+		print(vim.inspect(node))
+	end, map_options)
+
+	-- collapse current node
+	split:map("n", "h", function()
+		local node = tree:get_node()
+
+		if node:collapse() then
+			tree:render()
+		end
+	end, map_options)
+
+	-- collapse all nodes
+	split:map("n", "H", function()
+		local updated = false
+
+		for _, node in pairs(tree.nodes.by_id) do
+			updated = node:collapse() or updated
 		end
 
-		line:append(node.text)
+		if updated then
+			tree:render()
+		end
+	end, map_options)
 
-		return line
-	end,
-})
+	-- expand current node
+	split:map("n", "l", function()
+		local node = tree:get_node()
 
-local map_options = { noremap = true, nowait = true }
+		if node:expand() then
+			tree:render()
+		end
+	end, map_options)
 
--- print current node
-split:map("n", "<CR>", function()
-	local node = tree:get_node()
-	print(vim.inspect(node))
-end, map_options)
+	-- expand all nodes
+	split:map("n", "L", function()
+		local updated = false
 
--- collapse current node
-split:map("n", "h", function()
-	local node = tree:get_node()
+		for _, node in pairs(tree.nodes.by_id) do
+			updated = node:expand() or updated
+		end
 
-	if node:collapse() then
+		if updated then
+			tree:render()
+		end
+	end, map_options)
+
+	-- add new node under current node
+	split:map("n", "a", function()
+		local node = tree:get_node()
+		tree:add_node(
+			NuiTree.Node({ text = "d" }, {
+				NuiTree.Node({ text = "d-1" }),
+			}),
+			node:get_id()
+		)
 		tree:render()
-	end
-end, map_options)
+	end, map_options)
 
--- collapse all nodes
-split:map("n", "H", function()
-	local updated = false
-
-	for _, node in pairs(tree.nodes.by_id) do
-		updated = node:collapse() or updated
-	end
-
-	if updated then
+	-- delete current node
+	split:map("n", "d", function()
+		local node = tree:get_node()
+		tree:remove_node(node:get_id())
 		tree:render()
-	end
-end, map_options)
+	end, map_options)
 
--- expand current node
-split:map("n", "l", function()
-	local node = tree:get_node()
-
-	if node:expand() then
-		tree:render()
-	end
-end, map_options)
-
--- expand all nodes
-split:map("n", "L", function()
-	local updated = false
-
-	for _, node in pairs(tree.nodes.by_id) do
-		updated = node:expand() or updated
-	end
-
-	if updated then
-		tree:render()
-	end
-end, map_options)
-
--- add new node under current node
-split:map("n", "a", function()
-	local node = tree:get_node()
-	tree:add_node(
-		NuiTree.Node({ text = "d" }, {
-			NuiTree.Node({ text = "d-1" }),
-		}),
-		node:get_id()
-	)
 	tree:render()
-end, map_options)
+end
 
--- delete current node
-split:map("n", "d", function()
-	local node = tree:get_node()
-	tree:remove_node(node:get_id())
-	tree:render()
-end, map_options)
-
-tree:render()
+return M

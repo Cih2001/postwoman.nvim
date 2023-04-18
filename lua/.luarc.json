@@ -1,0 +1,8 @@
+{
+    "workspace.library": [
+        "/home/hamidreza/.local/share/lua_dev/site/pack/packer/start/neodev.nvim/types/stable",
+        "/home/linuxbrew/.linuxbrew/Cellar/neovim/0.9.0/share/nvim/runtime/lua",
+        "/home/hamidreza/P/postwoman.nvim/lua",
+        "${3rd}/luv/library"
+    ]
+}
