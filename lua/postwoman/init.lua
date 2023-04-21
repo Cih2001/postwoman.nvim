@@ -1,20 +1,31 @@
+local NuiTree = require("nui.tree")
+local Split = require("nui.split")
+local NuiLine = require("nui.line")
+
 local M = {}
-function M.setup(opts)
-	vim.print("hello from setup")
-	require("postwoman.cmd").setup(opts)
+function M.setup(opts) end
+
+local function get_nodes()
+	local collect = require("postwoman.collect").setup({
+		importer = require("postwoman.collect.openapi_v2"),
+		path = "/Users/hamidrezaebtehaj/example.yaml",
+	})
+	if not collect then
+		vim.api.nvim_err_writeln("could not initialize collect")
+		return nil
+	end
+
+	local defs = {}
+	for _, def in ipairs(collect.definitions) do
+		table.insert(defs, NuiTree.Node({ text = def.path }))
+	end
+
+	return {
+		NuiTree.Node({ text = "definitions" }, defs),
+	}
 end
 
-function M.openyaml()
-	local yaml = require("yaml")
-	local NuiTree = require("nui.tree")
-	local Split = require("nui.split")
-	local NuiLine = require("nui.line")
-
-	local file = io.open("/home/hamidreza/example.yaml", "r")
-	local data = yaml.eval(file:read("*all"))
-	vim.print(data)
-	file:close()
-
+function M.postwoman()
 	local split = Split({
 		relative = "win",
 		position = "left",
@@ -30,23 +41,9 @@ function M.openyaml()
 
 	local tree = NuiTree({
 		winid = split.winid,
-		nodes = {
-			NuiTree.Node({ text = "a" }),
-			NuiTree.Node({ text = "b" }, {
-				NuiTree.Node({ text = "b-1" }),
-				NuiTree.Node({ text = "b-2" }, {
-					NuiTree.Node({ text = "b-1-a" }),
-					NuiTree.Node({ text = "b-2-b" }),
-				}),
-			}),
-			NuiTree.Node({ text = "c" }, {
-				NuiTree.Node({ text = "c-1" }),
-				NuiTree.Node({ text = "c-2" }),
-			}),
-		},
+		nodes = get_nodes(),
 		prepare_node = function(node)
 			local line = NuiLine()
-
 			line:append(string.rep("  ", node:get_depth() - 1))
 
 			if node:has_children() then
@@ -56,7 +53,6 @@ function M.openyaml()
 			end
 
 			line:append(node.text)
-
 			return line
 		end,
 	})
