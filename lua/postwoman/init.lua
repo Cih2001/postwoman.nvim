@@ -8,7 +8,7 @@ function M.setup(opts) end
 local function get_nodes()
 	local collect = require("postwoman.collect").setup({
 		importer = require("postwoman.collect.openapi_v2"),
-		path = "/Users/hamidrezaebtehaj/example.yaml",
+		path = os.getenv("HOME") .. "/example.yaml",
 	})
 	if not collect then
 		vim.api.nvim_err_writeln("could not initialize collect")
