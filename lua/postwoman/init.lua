@@ -5,9 +5,78 @@ local NuiLine = require("nui.line")
 local M = {}
 function M.setup(opts) end
 
+local function get_item_properties(collect, item)
+	if not item.type then
+		return nil
+	end
+
+	if item.type ~= collect.types.Object then
+		return nil
+	end
+
+	if item.ref then
+		for name, def in pairs(collect.definitions) do
+			if item.ref == name then
+				return get_item_properties(collect, def)
+			end
+		end
+
+		vim.api.nvim_err_writeln("invalid reference: " .. item.name)
+		return nil
+	end
+
+	if not item.properties then
+		vim.api.nvim_err_writeln("item does not have properties: " .. item.name)
+		return nil
+	end
+
+	local properties = {}
+	for property_name, _ in pairs(item.properties) do
+		table.insert(properties, NuiTree.Node({ text = "- " .. property_name }))
+	end
+
+	return properties
+end
+
+local function get_definition_items(collect)
+	local nodes = {}
+	for _, def in pairs(collect.definitions) do
+		local subs = {}
+		table.insert(subs, NuiTree.Node({ text = "type: " .. def.type }))
+		if def.type == collect.types.Object then
+			local properties = get_item_properties(collect, def)
+			if not properties then
+				vim.api.nvim_err_writeln("error getting item properties: " .. def.name)
+				return nil
+			end
+			table.insert(subs, NuiTree.Node({ text = "properties" }, properties))
+		end
+
+		-- optionals
+		if def.desc then
+			table.insert(subs, NuiTree.Node({ text = "description: " .. def.desc }))
+		end
+		local n = NuiTree.Node({ text = def.name }, subs)
+
+		local inserted = false
+		for i, cur in ipairs(nodes) do
+			if def.name < cur.text then
+				table.insert(nodes, i, n)
+				inserted = true
+				break
+			end
+		end
+		if not inserted then
+			table.insert(nodes, n)
+		end
+	end
+
+	return nodes
+end
+
 local function get_nodes()
 	local collect = require("postwoman.collect").setup({
-		importer = require("postwoman.collect.openapi_v2"),
+		importer = require("postwoman.collect.openapi2"),
 		path = os.getenv("HOME") .. "/example.yaml",
 	})
 	if not collect then
@@ -15,13 +84,8 @@ local function get_nodes()
 		return nil
 	end
 
-	local defs = {}
-	for _, def in ipairs(collect.definitions) do
-		table.insert(defs, NuiTree.Node({ text = def.path }))
-	end
-
 	return {
-		NuiTree.Node({ text = "definitions" }, defs),
+		NuiTree.Node({ text = "definitions" }, get_definition_items(collect)),
 	}
 end
 
@@ -29,7 +93,7 @@ function M.postwoman()
 	local split = Split({
 		relative = "win",
 		position = "left",
-		size = 30,
+		size = 70,
 	})
 
 	split:mount()
