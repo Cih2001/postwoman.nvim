@@ -2,19 +2,19 @@ local function get_type(collect, node)
 	local type = node.type or nil -- collect.valid_type(node.type)
 	if not type then
 		if node.properties then
-			type = collect.types.Object
+			type = collect.types.OBJECT
 		elseif node.items then
-			type = collect.types.Array
+			type = collect.types.ARRAY
 		elseif node["$ref"] then
 			-- TODO: make sure that we only reference objects not other types.
-			type = collect.types.Object
+			type = collect.types.OBJECT
 		else
 			return nil
 		end
 	end
 
 	if type == "integer" then
-		type = collect.types.Number
+		type = collect.types.NUMBER
 	end
 
 	return collect.valid_type(type)
@@ -39,7 +39,7 @@ local function get_item(collect, name, node)
 		item.desc = desc
 	end
 
-	if type == collect.types.Object and node.properties then
+	if type == collect.types.OBJECT and node.properties then
 		local properties = {}
 		for property_name, property in pairs(node.properties) do
 			local sub_item = get_item(collect, property_name, property)
@@ -82,6 +82,8 @@ local function load_definitions(collect, nodes)
 	collect.definitions = defs
 end
 
+local function load_paths(collect, nodes) end
+
 local M = {
 	setup = function(opts)
 		if not opts.path then
@@ -106,6 +108,8 @@ local M = {
 		for k, v in pairs(data) do
 			if k == "definitions" then
 				load_definitions(opts.collect, v)
+			elseif k == "paths" then
+				load_paths(opts.collect, v)
 			end
 		end
 	end,

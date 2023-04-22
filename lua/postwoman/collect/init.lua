@@ -2,11 +2,11 @@ local M = {
 	-- list of other possible types and formats
 	-- https://swagger.io/docs/specification/data-models/data-types/
 	types = {
-		String = "string",
-		Number = "number",
-		Boolean = "boolean",
-		Array = "array",
-		Object = "object",
+		STRING = "string",
+		NUMBER = "number",
+		BOOLEAN = "boolean",
+		ARRAY = "array",
+		OBJECT = "object",
 	},
 	-- item {
 	--  ref  = "DEFINITION_NAME"  -- optional
@@ -22,6 +22,21 @@ local M = {
 	-- }
 	definitions = {
 		-- Name = { item }
+	},
+	methods = {
+		GET = "get",
+		POST = "post",
+		PUT = "put",
+		PATCH = "patch",
+		DELETE = "delete",
+	},
+	paths = {
+		-- Path = {
+		--  {
+		--    path = "Path",
+		--    method = "Method"
+		--  }
+		-- }
 	},
 }
 

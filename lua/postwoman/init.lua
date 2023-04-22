@@ -10,7 +10,7 @@ local function get_item_properties(collect, item)
 		return nil
 	end
 
-	if item.type ~= collect.types.Object then
+	if item.type ~= collect.types.OBJECT then
 		return nil
 	end
 
@@ -43,7 +43,7 @@ local function get_definition_items(collect)
 	for _, def in pairs(collect.definitions) do
 		local subs = {}
 		table.insert(subs, NuiTree.Node({ text = "type: " .. def.type }))
-		if def.type == collect.types.Object then
+		if def.type == collect.types.OBJECT then
 			local properties = get_item_properties(collect, def)
 			if not properties then
 				vim.api.nvim_err_writeln("error getting item properties: " .. def.name)
