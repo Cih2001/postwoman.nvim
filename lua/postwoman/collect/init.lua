@@ -13,7 +13,7 @@ local M = {
 	--
 	--  or
 	--
-	--  name = "name"
+	--  name = "DefinitionName"
 	--  type = "Type"
 	--  desc = "Description"            -- optional
 	--  properties = { Name = {item} }  -- only for objects
@@ -33,12 +33,36 @@ local M = {
 	paths = {
 		-- Path = {
 		--  {
-		--    path = "Path",
 		--    method = "Method"
 		--  }
 		-- }
 	},
+	places = {
+		Query = "query",
+		Path = "path",
+		Body = "body",
+	},
+	parameters = {
+		-- NAME = {
+		-- in = place
+		-- item = item
+		-- }
+	},
 }
+
+function M.valid_method(method)
+	if not method then
+		return nil
+	end
+
+	for _, m in pairs(M.methods) do
+		if m == method then
+			return m
+		end
+	end
+
+	return nil
+end
 
 function M.valid_type(type)
 	if not type then
@@ -61,7 +85,7 @@ function M.setup(opts)
 	end
 
 	local path = opts.path or nil
-	opts.importer.setup({
+	opts.importer:setup({
 		collect = M,
 		path = path,
 	})

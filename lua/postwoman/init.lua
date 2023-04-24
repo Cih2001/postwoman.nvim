@@ -1,10 +1,13 @@
 local NuiTree = require("nui.tree")
-local Split = require("nui.split")
+local NuiText = require("nui.text")
 local NuiLine = require("nui.line")
+local NuiSplit = require("nui.split")
 
 local M = {}
-function M.setup(opts) end
 
+-- get_item_properties retreives properties for items. Definitions are
+-- made up of items. This will return tree nodes to be displayed
+-- in the explorer.
 local function get_item_properties(collect, item)
 	if not item.type then
 		return nil
@@ -38,7 +41,7 @@ local function get_item_properties(collect, item)
 	return properties
 end
 
-local function get_definition_items(collect)
+local function get_definitions(collect)
 	local nodes = {}
 	for _, def in pairs(collect.definitions) do
 		local subs = {}
@@ -74,6 +77,90 @@ local function get_definition_items(collect)
 	return nodes
 end
 
+local function get_parameters(collect)
+	local nodes = {}
+	for _, parameter in pairs(collect.parameters) do
+		local subs = {}
+		table.insert(subs, NuiTree.Node({ text = "type: " .. parameter.item.type }))
+		table.insert(subs, NuiTree.Node({ text = "in: " .. parameter["in"] }))
+
+		if parameter.item.type == collect.types.OBJECT then
+			local properties = get_item_properties(collect, parameter.item)
+			if not properties then
+				vim.api.nvim_err_writeln("error getting item properties: " .. parameter.item.name)
+				return nil
+			end
+			table.insert(subs, NuiTree.Node({ text = "properties" }, properties))
+		end
+
+		local n = NuiTree.Node({ text = parameter.item.name }, subs)
+
+		local inserted = false
+		for i, cur in ipairs(nodes) do
+			if parameter.item.name < cur.text then
+				table.insert(nodes, i, n)
+				inserted = true
+				break
+			end
+		end
+		if not inserted then
+			table.insert(nodes, n)
+		end
+	end
+
+	return nodes
+end
+
+local function get_method_highlight(method)
+	if method == "get" then
+		return "DiagnosticOk"
+	elseif method == "post" then
+		return "DiagnosticHint"
+	elseif method == "put" or method == "patch" then
+		return "DiagnosticWarn"
+	elseif method == "delete" then
+		return "DiagnosticError"
+	end
+
+	return "Normal"
+end
+
+local function get_paths(collect)
+	local nodes = {}
+	for _, path in pairs(collect.paths) do
+		local subs = {}
+		if path.summary then
+			table.insert(subs, NuiTree.Node({ text = path.summary }))
+		end
+
+		local method = NuiText(string.format("%-6s ", path.method), get_method_highlight(path.method))
+		local n = NuiTree.Node({
+			text = NuiLine({
+				method,
+				NuiText(path.name),
+			}),
+			data = {
+				name = path.name,
+				method = path.method,
+			},
+		}, subs)
+
+		local inserted = false
+		for i, cur in ipairs(nodes) do
+			if path.name < cur.data.name then
+				table.insert(nodes, i, n)
+				inserted = true
+				break
+			end
+		end
+		if not inserted then
+			table.insert(nodes, n)
+		end
+	end
+
+	return nodes
+end
+
 local function get_nodes()
 	local collect = require("postwoman.collect").setup({
 		importer = require("postwoman.collect.openapi2"),
@@ -85,26 +172,35 @@ local function get_nodes()
 	end
 
 	return {
-		NuiTree.Node({ text = "definitions" }, get_definition_items(collect)),
+		NuiTree.Node({ text = "paths" }, get_paths(collect)),
+		NuiTree.Node({ text = "definitions" }, get_definitions(collect)),
+		NuiTree.Node({ text = "parameters" }, get_parameters(collect)),
 	}
 end
 
 function M.postwoman()
-	local split = Split({
+	local explorer = NuiSplit({
 		relative = "win",
 		position = "left",
-		size = 70,
+		size = 40,
+	})
+	local details = NuiSplit({
+		relative = "win",
+		position = "right",
+		size = 40,
 	})
 
-	split:mount()
-
+	details:mount()
+	local details_win = vim.api.nvim_get_current_win()
+	explorer:mount()
 	-- quit
-	split:map("n", "q", function()
-		split:unmount()
+	explorer:map("n", "<C-q>", function()
+		explorer:unmount()
+		layout:unmount()
 	end, { noremap = true })
 
 	local tree = NuiTree({
-		winid = split.winid,
+		winid = explorer.winid,
 		nodes = get_nodes(),
 		prepare_node = function(node)
 			local line = NuiLine()
@@ -121,16 +217,20 @@ function M.postwoman()
 		end,
 	})
 
+	explorer:map("n", "<Enter>", function()
+		local node = tree:get_node()
+		vim.api.nvim_set_current_win(details_win)
+
+		local line = NuiLine()
+		line:append(node.text, "@attribute")
+		local bufnr, ns_id, linenr_start = 0, -1, 1
+		line:render(bufnr, ns_id, linenr_start)
+	end, { noremap = true })
+
 	local map_options = { noremap = true, nowait = true }
 
-	-- print current node
-	split:map("n", "<CR>", function()
-		local node = tree:get_node()
-		print(vim.inspect(node))
-	end, map_options)
-
 	-- collapse current node
-	split:map("n", "h", function()
+	explorer:map("n", "h", function()
 		local node = tree:get_node()
 
 		if node:collapse() then
@@ -139,7 +239,7 @@ function M.postwoman()
 	end, map_options)
 
 	-- collapse all nodes
-	split:map("n", "H", function()
+	explorer:map("n", "H", function()
 		local updated = false
 
 		for _, node in pairs(tree.nodes.by_id) do
@@ -152,7 +252,7 @@ function M.postwoman()
 	end, map_options)
 
 	-- expand current node
-	split:map("n", "l", function()
+	explorer:map("n", "l", function()
 		local node = tree:get_node()
 
 		if node:expand() then
@@ -161,7 +261,7 @@ function M.postwoman()
 	end, map_options)
 
 	-- expand all nodes
-	split:map("n", "L", function()
+	explorer:map("n", "L", function()
 		local updated = false
 
 		for _, node in pairs(tree.nodes.by_id) do
@@ -171,25 +271,6 @@ function M.postwoman()
 		if updated then
 			tree:render()
 		end
-	end, map_options)
-
-	-- add new node under current node
-	split:map("n", "a", function()
-		local node = tree:get_node()
-		tree:add_node(
-			NuiTree.Node({ text = "d" }, {
-				NuiTree.Node({ text = "d-1" }),
-			}),
-			node:get_id()
-		)
-		tree:render()
-	end, map_options)
-
-	-- delete current node
-	split:map("n", "d", function()
-		local node = tree:get_node()
-		tree:remove_node(node:get_id())
-		tree:render()
 	end, map_options)
 
 	tree:render()
