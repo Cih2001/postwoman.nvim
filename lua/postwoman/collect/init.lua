@@ -7,9 +7,11 @@ local M = {
 		BOOLEAN = "boolean",
 		ARRAY = "array",
 		OBJECT = "object",
+		FILE = "file",
 	},
 	-- item {
-	--  ref  = "DEFINITION_NAME"  -- optional
+	--  definition_ref  = "DEFINITION_NAME"  -- optional
+	--  parameter_ref  = "DEFINITION_NAME"  -- optional
 	--
 	--  or
 	--
@@ -34,6 +36,7 @@ local M = {
 		-- Path = {
 		--  {
 		--    method = "Method"
+		--    parameters = {Parameters} -- array of parameters
 		--  }
 		-- }
 	},
@@ -45,7 +48,7 @@ local M = {
 	parameters = {
 		-- NAME = {
 		-- in = place
-		-- item = item
+		-- item
 		-- }
 	},
 }

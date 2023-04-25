@@ -17,9 +17,9 @@ local function get_item_properties(collect, item)
 		return nil
 	end
 
-	if item.ref then
-		for name, def in pairs(collect.definitions) do
-			if item.ref == name then
+	if item.definition_ref then
+		for id, def in pairs(collect.definitions) do
+			if item.definition_ref == id then
 				return get_item_properties(collect, def)
 			end
 		end
@@ -49,7 +49,7 @@ local function get_definitions(collect)
 		if def.type == collect.types.OBJECT then
 			local properties = get_item_properties(collect, def)
 			if not properties then
-				vim.api.nvim_err_writeln("error getting item properties: " .. def.name)
+				vim.api.nvim_err_writeln("error getting item properties: " .. def.id)
 				return nil
 			end
 			table.insert(subs, NuiTree.Node({ text = "properties" }, properties))
@@ -59,11 +59,11 @@ local function get_definitions(collect)
 		if def.desc then
 			table.insert(subs, NuiTree.Node({ text = "description: " .. def.desc }))
 		end
-		local n = NuiTree.Node({ text = def.name }, subs)
+		local n = NuiTree.Node({ text = def.id }, subs)
 
 		local inserted = false
 		for i, cur in ipairs(nodes) do
-			if def.name < cur.text then
+			if def.id < cur.text then
 				table.insert(nodes, i, n)
 				inserted = true
 				break
@@ -81,23 +81,28 @@ local function get_parameters(collect)
 	local nodes = {}
 	for _, parameter in pairs(collect.parameters) do
 		local subs = {}
-		table.insert(subs, NuiTree.Node({ text = "type: " .. parameter.item.type }))
+		table.insert(subs, NuiTree.Node({ text = "type: " .. parameter.type }))
 		table.insert(subs, NuiTree.Node({ text = "in: " .. parameter["in"] }))
 
-		if parameter.item.type == collect.types.OBJECT then
-			local properties = get_item_properties(collect, parameter.item)
+		if parameter.type == collect.types.OBJECT then
+			local properties = get_item_properties(collect, parameter)
 			if not properties then
-				vim.api.nvim_err_writeln("error getting item properties: " .. parameter.item.name)
+				vim.api.nvim_err_writeln("error getting item properties: " .. parameter.id)
 				return nil
 			end
 			table.insert(subs, NuiTree.Node({ text = "properties" }, properties))
 		end
 
-		local n = NuiTree.Node({ text = parameter.item.name }, subs)
+		local t = parameter.id
+		if not t then
+			t = parameter.name
+		end
+
+		local n = NuiTree.Node({ text = t }, subs)
 
 		local inserted = false
 		for i, cur in ipairs(nodes) do
-			if parameter.item.name < cur.text then
+			if t < cur.text then
 				table.insert(nodes, i, n)
 				inserted = true
 				break
@@ -132,22 +137,29 @@ local function get_paths(collect)
 		if path.summary then
 			table.insert(subs, NuiTree.Node({ text = path.summary }))
 		end
+		if path.parameters then
+			local params = {}
+			for _, parameter in ipairs(path.parameters) do
+				if not parameter.name then
+					vim.print(parameter)
+				end
+				table.insert(params, NuiTree.Node({ text = "- " .. parameter.name }))
+			end
+			table.insert(subs, NuiTree.Node({ text = "parameters:" }, params))
+		end
 
 		local method = NuiText(string.format("%-6s ", path.method), get_method_highlight(path.method))
 		local n = NuiTree.Node({
-			text = NuiLine({
-				method,
-				NuiText(path.name),
-			}),
+			text = NuiLine({ method, NuiText(path.id) }),
 			data = {
-				name = path.name,
+				id = path.id,
 				method = path.method,
 			},
 		}, subs)
 
 		local inserted = false
 		for i, cur in ipairs(nodes) do
-			if path.name < cur.data.name then
+			if path.id < cur.data.id then
 				table.insert(nodes, i, n)
 				inserted = true
 				break
